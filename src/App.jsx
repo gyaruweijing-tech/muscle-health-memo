@@ -1,152 +1,156 @@
 import { useState, useEffect } from 'react'
 
 function App() {
-  // --- 1. 基本データ管理 ---
-  const [menus, setMenus] = useState(['ベンチプレス', 'スクワット', 'デッドリフト']);
-  const [selectedMenu, setSelectedMenu] = useState('ベンチプレス');
-  const [newMenuName, setNewMenuName] = useState('');
+  // --- 🌟 ページ管理用のState ---
+  const [activeTab, setActiveTab] = useState('workout'); // 'workout' or 'timer'
 
-  // --- 2. 「今日のワークアウト」リスト ---
-  const [workoutList, setWorkoutList] = useState([]); // [{ name: 'ベンチ', weight: 60 }, ...]
+  // --- 🏋️ ワークアウト用のState（前回の内容） ---
+  const [menus, setMenus] = useState([
+    { name: 'ベンチプレス', defaultWeight: 60 },
+    { name: 'スクワット', defaultWeight: 80 },
+    { name: 'デッドリフト', defaultWeight: 100 }
+  ]);
+  const [selectedMenu, setSelectedMenu] = useState(menus[0].name);
   const [weight, setWeight] = useState(60);
+  const [workoutList, setWorkoutList] = useState([]);
   const [diary, setDiary] = useState("");
-  const [seconds, setSeconds] = useState(0);
-  const [isActive, setIsActive] = useState(false);
 
-  // タイマー処理
+  // --- ⏱ タイマー用のState ---
+  const [timerMode, setTimerMode] = useState('countup'); // 'countup' or 'countdown'
+  const [timeLeft, setTimeLeft] = useState(0); // 秒単位
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [inputMinutes, setInputMinutes] = useState(3); // カウントダウン初期値（分）
+
+  // タイマーの心臓部
   useEffect(() => {
     let interval = null;
-    if (isActive) {
+    if (isTimerRunning) {
       interval = setInterval(() => {
-        setSeconds(prev => prev + 1);
+        if (timerMode === 'countup') {
+          setTimeLeft(prev => prev + 1);
+        } else {
+          setTimeLeft(prev => {
+            if (prev <= 1) {
+              setIsTimerRunning(false);
+              alert("時間です！次のセットへGO！");
+              return 0;
+            }
+            return prev - 1;
+          });
+        }
       }, 1000);
     } else {
       clearInterval(interval);
     }
     return () => clearInterval(interval);
-  }, [isActive]);
+  }, [isTimerRunning, timerMode]);
 
+  // --- 関数群 ---
   const formatTime = (totalSeconds) => {
     const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
     const secs = (totalSeconds % 60).toString().padStart(2, '0');
     return `${mins}:${secs}`;
   };
 
-  // 種目マスタに追加
-  const handleAddMenu = () => {
-    if (newMenuName.trim() === "") return;
-    setMenus([...menus, newMenuName]);
-    setSelectedMenu(newMenuName);
-    setNewMenuName('');
+  const handleMenuChange = (e) => {
+    const name = e.target.value;
+    setSelectedMenu(name);
+    const m = menus.find(menu => menu.name === name);
+    if (m) setWeight(m.defaultWeight);
   };
 
-  // --- 🆕 今日のリストに種目を追加する関数 ---
-  const addExerciseToList = () => {
-    const newItem = {
-      id: Date.now(), // 削除とかで使うための一意のID
-      name: selectedMenu,
-      weight: weight
-    };
-    setWorkoutList([...workoutList, newItem]); // リストにガッチャンコ
+  const addToList = () => {
+    setWorkoutList([...workoutList, { id: Date.now(), name: selectedMenu, weight }]);
   };
 
-  // --- 🆕 最後に全部まとめて保存する関数 ---
-  const saveTodayWorkout = () => {
-    if (workoutList.length === 0) {
-      alert("まだ種目が登録されていません！");
-      return;
-    }
-    const finalData = {
-      exercises: workoutList,
-      totalTime: formatTime(seconds),
-      diary: diary,
-      date: new Date().toLocaleDateString()
-    };
-    console.log("保存データ:", finalData);
-    alert(`全 ${workoutList.length} 種目を保存しました！お疲れ様でした！`);
-    
-    // 保存後にリセット（必要なら）
-    setWorkoutList([]);
-    setDiary("");
-    setSeconds(0);
-    setIsActive(false);
+  const startCountdown = () => {
+    setTimeLeft(inputMinutes * 60);
+    setTimerMode('countdown');
+    setIsTimerRunning(true);
   };
 
   // スタイル設定
+  const navStyle = { display: 'flex', marginBottom: '20px', background: '#fff', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' };
+  const navBtnStyle = (isActive) => ({
+    flex: 1, padding: '15px', border: 'none', background: isActive ? '#007bff' : '#fff',
+    color: isActive ? '#fff' : '#333', fontWeight: 'bold', cursor: 'pointer'
+  });
   const cardStyle = { background: 'white', padding: '20px', borderRadius: '15px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', marginBottom: '20px' };
   const btnStyle = { padding: '10px 20px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' };
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '400px', margin: '0 auto', backgroundColor: '#f0f2f5', minHeight: '100vh' }}>
-      <h1 style={{ textAlign: 'center', color: '#007bff' }}>WORKOUT NOTE</h1>
+      <h1 style={{ textAlign: 'center', color: '#007bff', fontSize: '24px' }}>IRON NOTE 🦾</h1>
 
-      {/* 1. 種目選択と重量のセット */}
-      <section style={cardStyle}>
-        <h3 style={{ marginTop: 0 }}>🏋️ 種目を記録</h3>
-        <select 
-          value={selectedMenu} 
-          onChange={(e) => setSelectedMenu(e.target.value)}
-          style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '15px' }}
-        >
-          {menus.map((menu) => (
-            <option key={menu} value={menu}>{menu}</option>
-          ))}
-        </select>
+      {/* 🌟 タブナビゲーション */}
+      <nav style={navStyle}>
+        <button onClick={() => setActiveTab('workout')} style={navBtnStyle(activeTab === 'workout')}>記録</button>
+        <button onClick={() => setActiveTab('timer')} style={navBtnStyle(activeTab === 'timer')}>タイマー</button>
+      </nav>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', marginBottom: '15px' }}>
-          <button onClick={() => setWeight(weight - 2.5)} style={{ ...btnStyle, background: '#eee' }}>-</button>
-          <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{weight} kg</span>
-          <button onClick={() => setWeight(weight + 2.5)} style={{ ...btnStyle, background: '#eee' }}>+</button>
+      {/* 🌟 ワークアウト画面 */}
+      {activeTab === 'workout' && (
+        <div>
+          <section style={cardStyle}>
+            <h3 style={{ marginTop: 0 }}>🏋️ 種目選択</h3>
+            <select value={selectedMenu} onChange={handleMenuChange} style={{ width: '100%', padding: '10px', marginBottom: '10px' }}>
+              {menus.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
+            </select>
+            <div style={{ textAlign: 'center', fontSize: '24px', fontWeight: 'bold', margin: '10px' }}>{weight} kg</div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+              <button onClick={() => setWeight(weight - 2.5)} style={btnStyle}>-</button>
+              <button onClick={() => setWeight(weight + 2.5)} style={btnStyle}>+</button>
+            </div>
+            <button onClick={addToList} style={{ ...btnStyle, width: '100%', background: '#28a745', color: 'white', marginTop: '15px' }}>リストに追加</button>
+          </section>
+
+          <section style={cardStyle}>
+            <h3 style={{ marginTop: 0 }}>📝 今日のメニュー</h3>
+            {workoutList.map(item => <div key={item.id}>✅ {item.name} : {item.weight}kg</div>)}
+          </section>
         </div>
+      )}
 
-        <button onClick={addExerciseToList} style={{ ...btnStyle, width: '100%', background: '#28a745', color: 'white' }}>
-          今のセットをリストに追加
-        </button>
-      </section>
+      {/* 🌟 タイマー画面 */}
+      {activeTab === 'timer' && (
+        <div style={{ textAlign: 'center' }}>
+          <section style={cardStyle}>
+            <h2 style={{ fontSize: '48px', margin: '20px 0' }}>{formatTime(timeLeft)}</h2>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
+              <button onClick={() => setIsTimerRunning(!isTimerRunning)} style={{ ...btnStyle, background: isTimerRunning ? '#ffc107' : '#28a745', color: 'white' }}>
+                {isTimerRunning ? 'PAUSE' : 'START'}
+              </button>
+              <button onClick={() => { setIsTimerRunning(false); setTimeLeft(0); }} style={{ ...btnStyle, background: '#6c757d', color: 'white' }}>RESET</button>
+            </div>
+          </section>
 
-      {/* 2. 本日のトレーニング内容（リアルタイム表示） */}
-      <section style={cardStyle}>
-        <h3 style={{ marginTop: 0 }}>📝 本日のメニュー</h3>
-        {workoutList.length === 0 ? (
-          <p style={{ color: '#999', fontSize: '14px' }}>まだ記録がありません</p>
-        ) : (
-          <ul style={{ paddingLeft: '20px', fontSize: '15px' }}>
-            {workoutList.map((item) => (
-              <li key={item.id} style={{ marginBottom: '5px' }}>
-                <strong>{item.name}</strong>: {item.weight} kg
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* 3. 総時間と日記（まとめ） */}
-      <section style={cardStyle}>
-        <h3 style={{ marginTop: 0 }}>🏁 本日のまとめ</h3>
-        <div style={{ textAlign: 'center', marginBottom: '15px' }}>
-          <span style={{ fontSize: '14px', color: '#666' }}>合計時間: </span>
-          <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{formatTime(seconds)}</span>
-          <div style={{ marginTop: '10px' }}>
-            <button onClick={() => setIsActive(!isActive)} style={{ ...btnStyle, background: '#007bff', color: 'white', fontSize: '12px' }}>
-              {isActive ? 'タイマー停止' : 'タイマースタート'}
-            </button>
-          </div>
+          <section style={cardStyle}>
+            <h3 style={{ marginTop: 0 }}>⏲ カウントダウン設定</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+              <input 
+                type="number" 
+                value={inputMinutes} 
+                onChange={(e) => setInputMinutes(e.target.value)} 
+                style={{ width: '60px', padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }}
+              />
+              <span>分測る</span>
+              <button onClick={startCountdown} style={{ ...btnStyle, background: '#007bff', color: 'white' }}>セット</button>
+            </div>
+            <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>※セットすると自動で開始します</p>
+          </section>
         </div>
-        
+      )}
+
+      {/* 完了ボタンはどのタブでも見えるように下に配置 */}
+      <div style={{ marginTop: '20px' }}>
         <textarea 
-          value={diary}
+          placeholder="今日の所感..." 
+          value={diary} 
           onChange={(e) => setDiary(e.target.value)}
-          placeholder="今日の所感・筋肉のパンプ具合など..."
-          style={{ width: '100%', height: '80px', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' }}
+          style={{ width: '100%', height: '60px', borderRadius: '10px', padding: '10px', border: '1px solid #ddd', boxSizing: 'border-box' }}
         />
-      </section>
-
-      <button 
-        onClick={saveTodayWorkout}
-        style={{ ...btnStyle, width: '100%', background: '#007bff', color: 'white', fontSize: '16px', padding: '15px', boxShadow: '0 4px 10px rgba(0,123,255,0.3)' }}
-      >
-        ワークアウトを完了して保存
-      </button>
+        <button style={{ ...btnStyle, width: '100%', background: '#007bff', color: 'white', marginTop: '10px', padding: '15px' }}>ワークアウト完了</button>
+      </div>
     </div>
   )
 }
