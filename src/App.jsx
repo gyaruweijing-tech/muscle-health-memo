@@ -13,12 +13,16 @@ function App() {
   const [weight, setWeight] = useState(60);
   const [workoutList, setWorkoutList] = useState([]);
   const [diary, setDiary] = useState("");
+  const [newMenuName, setNewMenuName] = useState('');
+  const [newMenuWeight, setNewMenuWeight] = useState(20);
 
   // --- ⏱ タイマー用のState ---
-  const [timerMode, setTimerMode] = useState('countup'); 
-  const [timeLeft, setTimeLeft] = useState(0); 
+  const [timerMode, setTimerMode] = useState('countup');
+  const [timeLeft, setTimeLeft] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [inputMinutes, setInputMinutes] = useState(3);
+  const [countdownInitialSeconds, setCountdownInitialSeconds] = useState(0);
+  const [totalElapsedSeconds, setTotalElapsedSeconds] = useState(0);
 
   useEffect(() => {
     let interval = null;
@@ -60,6 +64,15 @@ function App() {
     setWorkoutList([...workoutList, { id: Date.now(), name: selectedMenu, weight }]);
   };
 
+  const addMenu = () => {
+    const trimmed = newMenuName.trim();
+    if (!trimmed) return;
+    if (menus.find(m => m.name === trimmed)) return;
+    setMenus([...menus, { name: trimmed, defaultWeight: newMenuWeight }]);
+    setNewMenuName('');
+    setNewMenuWeight(20);
+  };
+
   // --- 🆕 モード切り替えを安全に行う関数 ---
   const switchMode = (mode) => {
     setIsTimerRunning(false); // 一旦止める
@@ -67,9 +80,28 @@ function App() {
     setTimeLeft(0); // 時間をリセット
   };
 
+  // --- タイマーの現在の経過時間を取得する関数 ---
+  const getCurrentElapsed = () => {
+    if (timerMode === 'countup') {
+      return timeLeft;
+    } else {
+      return countdownInitialSeconds - timeLeft;
+    }
+  };
+
+  // --- タイマーを止めて累計に追加するボタン ---
+  const addElapsedToTotal = () => {
+    const elapsed = getCurrentElapsed();
+    if (elapsed > 0) {
+      setTotalElapsedSeconds(prev => prev + elapsed);
+    }
+    setIsTimerRunning(false);
+    setTimeLeft(timerMode === 'countdown' ? countdownInitialSeconds : 0);
+  };
+
   // --- 🆕 全データをまとめて保存する関数 ---
   const saveWorkout = () => {
-    const finalTime = formatTime(timeLeft);
+    const finalTime = formatTime(totalElapsedSeconds);
     const summary = `【${new Date().toLocaleDateString()} の記録】\n時間: ${finalTime}\n種目: ${workoutList.map(w => w.name).join(', ')}\n所感: ${diary}`;
     
     console.log("保存するデータ:", {
@@ -86,6 +118,7 @@ function App() {
     setDiary("");
     setTimeLeft(0);
     setIsTimerRunning(false);
+    setTotalElapsedSeconds(0);
   };
 
   // スタイル
@@ -117,10 +150,30 @@ function App() {
               <button onClick={() => setWeight(weight + 2.5)} style={btnStyle}>+</button>
             </div>
             <button onClick={addToList} style={{ ...btnStyle, width: '100%', background: '#28a745', color: 'white', marginTop: '15px' }}>リストに追加</button>
+            <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid #eee' }} />
+            <p style={{ margin: '0 0 8px', fontWeight: 'bold', fontSize: '14px', color: '#555' }}>+ 新しい種目を追加</p>
+            <input
+              type="text"
+              placeholder="種目名"
+              value={newMenuName}
+              onChange={(e) => setNewMenuName(e.target.value)}
+              style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box', marginBottom: '8px' }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px', color: '#555' }}>デフォルト重量:</span>
+              <input
+                type="number"
+                value={newMenuWeight}
+                onChange={(e) => setNewMenuWeight(Number(e.target.value))}
+                style={{ width: '70px', padding: '8px', borderRadius: '8px', border: '1px solid #ddd' }}
+              />
+              <span style={{ fontSize: '14px', color: '#555' }}>kg</span>
+              <button onClick={addMenu} style={{ ...btnStyle, background: '#007bff', color: 'white', padding: '8px 16px', marginLeft: 'auto' }}>追加</button>
+            </div>
           </section>
 
           <section style={cardStyle}>
-            <h3 style={{ marginTop: 0 }}>📝 今日のメニュー (時間: {formatTime(timeLeft)})</h3>
+            <h3 style={{ marginTop: 0 }}>📝 今日のメニュー (累計: {formatTime(totalElapsedSeconds)})</h3>
             {workoutList.length === 0 ? <p style={{color: '#999'}}>記録なし</p> : workoutList.map(item => <div key={item.id}>✅ {item.name} : {item.weight}kg</div>)}
           </section>
 
@@ -155,7 +208,16 @@ function App() {
               <button onClick={() => setIsTimerRunning(!isTimerRunning)} style={{ ...btnStyle, background: isTimerRunning ? '#ffc107' : '#28a745', color: 'white', minWidth: '100px' }}>
                 {isTimerRunning ? 'PAUSE' : 'START'}
               </button>
-              <button onClick={() => { setIsTimerRunning(false); setTimeLeft(0); }} style={{ ...btnStyle, background: '#6c757d', color: 'white' }}>RESET</button>
+              <button onClick={() => { setIsTimerRunning(false); setTimeLeft(timerMode === 'countdown' ? countdownInitialSeconds : 0); }} style={{ ...btnStyle, background: '#6c757d', color: 'white' }}>RESET</button>
+            </div>
+            <div style={{ marginTop: '15px' }}>
+              <button
+                onClick={addElapsedToTotal}
+                disabled={getCurrentElapsed() === 0}
+                style={{ ...btnStyle, background: getCurrentElapsed() > 0 ? '#007bff' : '#ccc', color: 'white', width: '100%' }}
+              >
+                + 記録に追加
+              </button>
             </div>
           </section>
 
@@ -168,7 +230,8 @@ function App() {
                 onChange={(e) => setInputMinutes(e.target.value)} 
                 style={{ width: '60px', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', marginRight: '5px' }}
               /> 分
-              <button onClick={() => { setTimeLeft(inputMinutes * 60); setIsTimerRunning(true); }} style={{ ...btnStyle, background: '#007bff', color: 'white', marginLeft: '10px' }}>セット＆開始</button>
+              <button onClick={() => { const secs = inputMinutes * 60; setCountdownInitialSeconds(secs); setTimeLeft(secs); setIsTimerRunning(false); }} style={{ ...btnStyle, background: '#6c757d', color: 'white', marginLeft: '10px' }}>セット</button>
+              <button onClick={() => setIsTimerRunning(true)} disabled={countdownInitialSeconds === 0} style={{ ...btnStyle, background: countdownInitialSeconds > 0 ? '#28a745' : '#ccc', color: 'white', marginLeft: '5px' }}>開始</button>
             </section>
           )}
         </div>
