@@ -138,18 +138,19 @@ function CalendarTab({ savedWorkouts, onDeleteWorkout }) {
   const [year, setYear]         = useState(today.getFullYear())
   const [month, setMonth]       = useState(today.getMonth())
   const [selectedDate, setSelectedDate] = useState(null)
+  const [expandedId, setExpandedId] = useState(null)
 
   const workoutDateSet = new Set(savedWorkouts.map(w => w.date))
 
   const prevMonth = () => {
     if (month === 0) { setYear(y => y - 1); setMonth(11) }
     else setMonth(m => m - 1)
-    setSelectedDate(null)
+    setSelectedDate(null); setExpandedId(null)
   }
   const nextMonth = () => {
     if (month === 11) { setYear(y => y + 1); setMonth(0) }
     else setMonth(m => m + 1)
-    setSelectedDate(null)
+    setSelectedDate(null); setExpandedId(null)
   }
 
   const firstDay    = new Date(year, month, 1).getDay()
@@ -226,31 +227,57 @@ function CalendarTab({ savedWorkouts, onDeleteWorkout }) {
           {selectedRecords.length === 0 ? (
             <p style={{ color: T.textMuted, fontSize: '14px', margin: 0 }}>この日の記録はありません</p>
           ) : (
-            selectedRecords.map(record => (
-              <div key={record.id} style={{ borderBottom: `1px solid ${T.border}`, padding: '12px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ background: T.primaryLight, color: T.primary, fontSize: '12px', fontWeight: '600', padding: '3px 10px', borderRadius: '20px' }}>
-                    {record.duration}
-                  </span>
-                  <button onClick={() => onDeleteWorkout(record.id)} className="iron-btn" style={{ ...btn(T.danger), padding: '5px 12px', fontSize: '12px' }}>削除</button>
+            selectedRecords.map(record => {
+              const isOpen = expandedId === record.id
+              return (
+                <div key={record.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                  {/* 常に表示されるヘッダー行 */}
+                  <div
+                    onClick={() => setExpandedId(isOpen ? null : record.id)}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ background: T.primaryLight, color: T.primary, fontSize: '12px', fontWeight: '600', padding: '3px 10px', borderRadius: '20px' }}>
+                        {record.duration}
+                      </span>
+                      {record.exercises && record.exercises.length > 0 && (
+                        <span style={{ fontSize: '12px', color: T.textMuted }}>{record.exercises.length}種目</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: T.textMuted, fontSize: '13px' }}>{isOpen ? '▲' : '▼'}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDeleteWorkout(record.id) }}
+                        className="iron-btn"
+                        style={{ ...btn(T.danger), padding: '5px 12px', fontSize: '12px' }}
+                      >削除</button>
+                    </div>
+                  </div>
+                  {/* 展開時の詳細 */}
+                  {isOpen && (
+                    <div style={{ paddingBottom: '12px' }} className="iron-fadein">
+                      {record.timers && record.timers.length > 0 && (
+                        <div style={{ fontSize: '13px', color: T.primary, fontWeight: '600', marginBottom: '4px' }}>
+                          {record.timers.map(t => `${t.minutes}分`).join(' · ')} 完走
+                        </div>
+                      )}
+                      {record.exercises && record.exercises.length > 0 && (
+                        <div style={{ fontSize: '13px', color: T.textSub, lineHeight: '1.8' }}>
+                          {record.exercises.map(e => (
+                            <div key={e.id}>· {e.name}　{e.weight}kg × {e.reps}回 × {e.sets}セット</div>
+                          ))}
+                        </div>
+                      )}
+                      {record.note && (
+                        <div style={{ fontSize: '12px', color: T.textMuted, marginTop: '6px', padding: '8px 10px', background: '#f8fafc', borderRadius: '8px' }}>
+                          {record.note}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {record.timers && record.timers.length > 0 && (
-                  <div style={{ fontSize: '13px', color: T.primary, fontWeight: '600', marginBottom: '4px' }}>
-                    {record.timers.map(t => `${t.minutes}分`).join(' · ')} 完走
-                  </div>
-                )}
-                {record.exercises && record.exercises.length > 0 && (
-                  <div style={{ fontSize: '13px', color: T.textSub, lineHeight: '1.6' }}>
-                    {record.exercises.map(e => `${e.name} ${e.weight}kg`).join(' · ')}
-                  </div>
-                )}
-                {record.note && (
-                  <div style={{ fontSize: '12px', color: T.textMuted, marginTop: '6px', padding: '8px 10px', background: '#f8fafc', borderRadius: '8px' }}>
-                    {record.note}
-                  </div>
-                )}
-              </div>
-            ))
+              )
+            })
           )}
         </section>
       )}
@@ -264,8 +291,10 @@ function App() {
   const [activeSubTab,  setActiveSubTab]  = useState('record')
 
   const [savedWorkouts, setSavedWorkouts] = useState(() => {
-    const stored = localStorage.getItem('ironNoteWorkouts')
-    return stored ? JSON.parse(stored) : []
+    try {
+      const stored = localStorage.getItem('ironNoteWorkouts')
+      return stored ? JSON.parse(stored) : []
+    } catch { return [] }
   })
 
   const [menus, setMenus] = useState([
@@ -274,7 +303,8 @@ function App() {
     { name: 'デッドリフト', defaultWeight: 100 },
   ])
   const [selectedMenu,      setSelectedMenu]      = useState(menus[0].name)
-  const [weight,            setWeight]            = useState(60)
+  const [weight,            setWeight]            = useState('60')
+  const [weightStep,        setWeightStep]        = useState(2.5)
   const [workoutList,       setWorkoutList]       = useState([])
   const [diary,             setDiary]             = useState('')
   const [newMenuName,       setNewMenuName]       = useState('')
@@ -329,11 +359,11 @@ function App() {
     const name = e.target.value
     setSelectedMenu(name)
     const m = menus.find(menu => menu.name === name)
-    if (m) setWeight(m.defaultWeight)
+    if (m) setWeight(String(m.defaultWeight))
   }
 
   const addToList = () => {
-    setWorkoutList([...workoutList, { id: Date.now(), name: selectedMenu, weight, reps, sets }])
+    setWorkoutList([...workoutList, { id: Date.now(), name: selectedMenu, weight: parseFloat(weight) || 0, reps, sets }])
   }
 
   const removeFromList = (id) => setWorkoutList(workoutList.filter(item => item.id !== id))
@@ -379,7 +409,7 @@ function App() {
     setMenus(updated)
     if (selectedMenu === name && updated.length > 0) {
       setSelectedMenu(updated[0].name)
-      setWeight(updated[0].defaultWeight)
+      setWeight(String(updated[0].defaultWeight))
     }
     if (updated.length === 0) setIsEditingMenus(false)
   }
@@ -405,7 +435,7 @@ function App() {
     }
     const updated = [...savedWorkouts, newRecord]
     setSavedWorkouts(updated)
-    localStorage.setItem('ironNoteWorkouts', JSON.stringify(updated))
+    try { localStorage.setItem('ironNoteWorkouts', JSON.stringify(updated)) } catch {}
     setWorkoutList([])
     setTimerLogs([])
     setDiary('')
@@ -417,7 +447,7 @@ function App() {
   const deleteWorkout = (id) => {
     const updated = savedWorkouts.filter(w => w.id !== id)
     setSavedWorkouts(updated)
-    localStorage.setItem('ironNoteWorkouts', JSON.stringify(updated))
+    try { localStorage.setItem('ironNoteWorkouts', JSON.stringify(updated)) } catch {}
   }
 
   return (
@@ -512,12 +542,52 @@ function App() {
 
                   <div style={{ marginBottom: '14px' }}>
                     <span style={labelStyle}>重量</span>
-                    <Stepper
-                      value={weight}
-                      onDec={() => setWeight(w => w - 2.5)}
-                      onInc={() => setWeight(w => w + 2.5)}
-                      unit="kg" size="lg"
-                    />
+                    {/* ステップ幅選択 */}
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', justifyContent: 'center' }}>
+                      {[1, 2.5, 5, 10].map(s => (
+                        <button key={s} onClick={() => setWeightStep(s)} className="iron-btn" style={{
+                          padding: '4px 12px', border: `1.5px solid ${weightStep === s ? T.primary : T.border}`,
+                          borderRadius: '20px', background: weightStep === s ? T.primaryLight : '#fff',
+                          color: weightStep === s ? T.primary : T.textMuted, fontSize: '12px', fontWeight: '600', cursor: 'pointer',
+                        }}>{s}kg</button>
+                      ))}
+                    </div>
+                    {/* ステッパー + 入力欄 */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+                      <button
+                        onClick={() => setWeight(w => {
+                          const n = Math.max(0, +((parseFloat(w) || 0) - weightStep).toFixed(2))
+                          return n === 0 ? '' : String(n)
+                        })}
+                        className="iron-btn"
+                        style={{ width: '44px', height: '44px', border: `1.5px solid ${T.border}`, borderRadius: '10px', background: '#fff', color: T.text, fontSize: '20px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >−</button>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                        <input
+                          type="text" inputMode="decimal"
+                          value={weight}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            if (v === '' || /^\d*\.?\d*$/.test(v)) setWeight(v)
+                          }}
+                          onBlur={(e) => {
+                            const n = parseFloat(e.target.value)
+                            if (!isNaN(n)) setWeight(String(n))
+                          }}
+                          placeholder="--"
+                          style={{
+                            width: '80px', fontSize: '28px', fontWeight: '700', color: T.text,
+                            textAlign: 'center', border: 'none', background: 'transparent', outline: 'none', padding: '0',
+                          }}
+                        />
+                        <span style={{ fontSize: '16px', color: T.textSub, fontWeight: '600' }}>kg</span>
+                      </div>
+                      <button
+                        onClick={() => setWeight(w => String(+((parseFloat(w) || 0) + weightStep).toFixed(2)))}
+                        className="iron-btn"
+                        style={{ width: '44px', height: '44px', border: `1.5px solid ${T.border}`, borderRadius: '10px', background: '#fff', color: T.text, fontSize: '20px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >＋</button>
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', gap: '12px' }}>
@@ -557,7 +627,7 @@ function App() {
                   </div>
                   {workoutList.length === 0 && timerLogs.length === 0
                     ? <p style={{ color: T.textMuted, fontSize: '14px', margin: 0, textAlign: 'center', padding: '16px 0' }}>まだ記録がありません</p>
-                    : <>
+                    : <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
                         {timerLogs.map(log => (
                           <div key={log.id} style={{
                             display: 'flex', alignItems: 'center',
@@ -601,7 +671,7 @@ function App() {
                             )}
                           </div>
                         ))}
-                      </>
+                      </div>
                   }
                 </section>
 
