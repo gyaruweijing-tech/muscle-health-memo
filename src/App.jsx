@@ -298,12 +298,19 @@ function App() {
   })
 
   const [menus, setMenus] = useState([
-    { name: 'ベンチプレス', defaultWeight: 60 },
-    { name: 'スクワット',   defaultWeight: 80 },
-    { name: 'デッドリフト', defaultWeight: 100 },
+    { name: 'ベンチプレス',       defaultWeight: 40 },
+    { name: 'スクワット',         defaultWeight: 50 },
+    { name: 'デッドリフト',       defaultWeight: 60 },
+    { name: 'ショルダープレス',   defaultWeight: 25 },
+    { name: 'ラットプルダウン',   defaultWeight: 40 },
+    { name: 'ダンベルカール',     defaultWeight: 10 },
+    { name: 'トライセプスプッシュダウン', defaultWeight: 20 },
+    { name: 'レッグプレス',       defaultWeight: 60 },
+    { name: 'ケーブルロウ',       defaultWeight: 35 },
+    { name: 'チェストフライ',     defaultWeight: 15 },
   ])
   const [selectedMenu,      setSelectedMenu]      = useState(menus[0].name)
-  const [weight,            setWeight]            = useState('60')
+  const [weight,            setWeight]            = useState('40')
   const [weightStep,        setWeightStep]        = useState(2.5)
   const [workoutList,       setWorkoutList]       = useState([])
   const [diary,             setDiary]             = useState('')
